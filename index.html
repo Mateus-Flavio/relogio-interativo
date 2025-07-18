@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relógio Digital com Alarme, Cronômetro e Pomodoro</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- React / ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- Babel para JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function Pomodoro() {
+      const WORK_TIME = 25 * 60;   // 25 minutos em segundos
+      const BREAK_TIME = 5 * 60;   // 5 minutos em segundos
+
+      const [timeLeft, setTimeLeft] = useState(WORK_TIME);
+      const [isRunning, setIsRunning] = useState(false);
+      const [onBreak, setOnBreak] = useState(false);
+      const [cycles, setCycles] = useState(0);
+
+      const intervalRef = useRef(null);
+
+      const formatTime = (seconds) => {
+        const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        return `${m}:${s}`;
+      };
+
+      const toggleStart = () => {
+        if (isRunning) {
+          clearInterval(intervalRef.current);
+          setIsRunning(false);
+        } else {
+          intervalRef.current = setInterval(() => {
+            setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+          }, 1000);
+          setIsRunning(true);
+        }
+      };
+
+      const resetTimer = () => {
+        clearInterval(intervalRef.current);
+        setIsRunning(false);
+        setOnBreak(false);
+        setTimeLeft(WORK_TIME);
+        setCycles(0);
+      };
+
+      useEffect(() => {
+        if (timeLeft === 0) {
+          clearInterval(intervalRef.current);
+          setIsRunning(false);
+          const beep = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+          beep.play();
+          if (onBreak) {
+            setOnBreak(false);
+            setTimeLeft(WORK_TIME);
+          } else {
+            setOnBreak(true);
+            setTimeLeft(BREAK_TIME);
+            setCycles(prev => prev + 1);
+            alert(`Parabéns! Você concluiu ${cycles + 1} ciclo(s) Pomodoro. Agora um intervalo de descanso.`);
+          }
+        }
+      }, [timeLeft, onBreak, cycles]);
+
+      return (
+        <div style={{ textAlign: 'center', maxWidth: 320, margin: 'auto' }}>
+          <h2>Modo Pomodoro</h2>
+          <div className="clock" aria-live="polite" style={{ userSelect: 'none', fontWeight: 'bold', fontSize:'4rem', marginBottom:16 }}>
+            {formatTime(timeLeft)}
+          </div>
+          <div className="button-group" style={{ justifyContent: 'center', marginBottom: 16 }}>
+            <button onClick={toggleStart} className="button-theme" style={{marginRight:8}}>
+              {isRunning ? 'Pausar' : 'Iniciar'}
+            </button>
+            <button onClick={resetTimer} className="button-theme" style={{backgroundColor:'#f44336'}}>
+              Resetar
+            </button>
+          </div>
+          <div style={{fontWeight:'600'}}>
+            {onBreak ? "Intervalo de descanso" : "Trabalhando"} <br />
+            Ciclos concluídos: {cycles}
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [mode, setMode] = useState('clock'); // 'clock' | 'stopwatch' | 'pomodoro'
+      const [darkTheme, setDarkTheme] = useState(false);
+
+      useEffect(() => {
+        if (darkTheme) {
+          document.body.classList.add('theme-dark');
+          document.body.classList.remove('theme-light');
+        } else {
+          document.body.classList.add('theme-light');
+          document.body.classList.remove('theme-dark');
+        }
+      }, [darkTheme]);
+
+      const [time, setTime] = useState(new Date());
+      const [alarm, setAlarm] = useState("");
+      const [alarmSet, setAlarmSet] = useState(false);
+      const [alarmTriggered, setAlarmTriggered] = useState(false);
+
+      useEffect(() => {
+        if (mode !== 'clock') return;
+        const timerID = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timerID);
+      }, [mode]);
+
+      useEffect(() => {
+        if (alarmSet && !alarmTriggered && mode === 'clock') {
+          const curTime = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+          if (curTime === alarm) {
+            setAlarmTriggered(true);
+            const beep = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+            beep.play();
+            alert(`⏰ Alarme! Chegou o horário: ${alarm}`);
+          }
+        }
+      }, [time, alarm, alarmSet, alarmTriggered, mode]);
+
+      const formatTime = (date) => {
+        const h = String(date.getHours()).padStart(2,'0');
+        const m = String(date.getMinutes()).padStart(2,'0');
+        const s = String(date.getSeconds()).padStart(2,'0');
+        return `${h}:${m}:${s}`;
+      };
+
+      const handleAlarmChange = e => {
+        setAlarm(e.target.value);
+        setAlarmSet(false);
+        setAlarmTriggered(false);
+      };
+
+      const handleSetAlarm = () => {
+        if (/^\d{2}:\d{2}$/.test(alarm)) {
+          setAlarmSet(true);
+          setAlarmTriggered(false);
+        } else {
+          alert("Informe o horário no formato HH:MM");
+          setAlarm("");
+        }
+      };
+
+      const [swRunning, setSwRunning] = useState(false);
+      const [swTime, setSwTime] = useState(0);
+      const [swBest, setSwBest] = useState(null);
+      const swInterval = useRef(null);
+
+      useEffect(() => {
+        if (mode !== 'stopwatch') {
+          if (swInterval.current) {
+            clearInterval(swInterval.current);
+            setSwRunning(false);
+          }
+          return;
+        }
+        if (swRunning) {
+          swInterval.current = setInterval(() => {
+            setSwTime(prev => prev + 10);
+          }, 10);
+        } else {
+          clearInterval(swInterval.current);
+        }
+        return () => clearInterval(swInterval.current);
+      }, [swRunning, mode]);
+
+      const resetStopwatch = () => {
+        if (swBest === null || swTime > swBest) setSwBest(swTime);
+        setSwRunning(false);
+        setSwTime(0);
+      };
+
+      const formatSW = ms => {
+        const min = String(Math.floor(ms / 60000)).padStart(2,'0');
+        const sec = String(Math.floor(ms / 1000) % 60).padStart(2,'0');
+        const cs = String(Math.floor((ms % 1000) / 10)).padStart(2,'0');
+        return `${min}:${sec}.${cs}`;
+      };
+
+      return (
+        <div className="app-container">
+          {/* Botões modo */}
+          <div className="button-group" role="tablist" aria-label="Seleção de modo">
+            <button
+              className={`button-theme ${mode === 'clock' ? 'button-active' : ''}`}
+              onClick={() => setMode('clock')}
+              role="tab"
+              aria-selected={mode === 'clock'}
+              tabIndex={mode === 'clock' ? 0 : -1}
+            >
+              Relógio
+            </button>
+            <button
+              className={`button-theme ${mode === 'stopwatch' ? 'button-active' : ''}`}
+              onClick={() => setMode('stopwatch')}
+              role="tab"
+              aria-selected={mode === 'stopwatch'}
+              tabIndex={mode === 'stopwatch' ? 0 : -1}
+            >
+              Cronômetro
+            </button>
+            <button
+              className={`button-theme ${mode === 'pomodoro' ? 'button-active' : ''}`}
+              onClick={() => setMode('pomodoro')}
+              role="tab"
+              aria-selected={mode === 'pomodoro'}
+              tabIndex={mode === 'pomodoro' ? 0 : -1}
+            >
+              Pomodoro
+            </button>
+          </div>
+
+          {mode === 'clock' && (
+            <>
+              <div className="clock" aria-live="polite" aria-label="Relógio digital">
+                {formatTime(time)}
+              </div>
+
+              <div className="button-group" style={{ justifyContent: 'center', alignItems: 'center' }}>
+                <input
+                  type="time"
+                  value={alarm}
+                  onChange={handleAlarmChange}
+                  disabled={alarmSet}
+                  aria-label="Definir horário do alarme"
+                />
+                <button
+                  className="button-theme"
+                  disabled={alarmSet || !alarm}
+                  onClick={handleSetAlarm}
+                  aria-disabled={alarmSet || !alarm}
+                >
+                  Definir Alarme
+                </button>
+              </div>
+              {alarmSet && <div className="alarm-info">⏰ Alarme ajustado para: {alarm}</div>}
+            </>
+          )}
+
+          {mode === 'stopwatch' && (
+            <>
+              <div className="clock" aria-live="polite">{formatSW(swTime)}</div>
+              <div className="button-group">
+                <button className="button-theme" onClick={() => setSwRunning(r => !r)}>
+                  {swRunning ? 'Parar' : 'Iniciar'}
+                </button>
+                <button className="button-theme" style={{ backgroundColor: '#f44336' }} onClick={resetStopwatch}>
+                  Resetar
+                </button>
+              </div>
+              {swBest !== null && <div className="alarm-info">🏅 Recorde: {formatSW(swBest)}</div>}
+            </>
+          )}
+
+          {mode === 'pomodoro' && <Pomodoro />}
+
+          <button
+            className="button-theme"
+            style={{ marginTop: '30px', width: '100%' }}
+            onClick={() => setDarkTheme(prev => !prev)}
+            aria-label="Alternar tema claro ou escuro"
+          >
+            Alternar Tema
+          </button>
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById("root");
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+  </script>
+
+</body>
+</html>
+
+
+
+
+
+
